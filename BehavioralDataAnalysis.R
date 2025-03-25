@@ -1,7 +1,7 @@
-# Endpoint-focus exercise vs. Present-focus exercise
+# Endpoint-focused exercise vs. Present-focused exercise
 # Behavioral data analysis & plotting
 # This script requires one file: "rawdata.xlsx"
-# Programmed by Feng XIAO (updated on 2025.3.6)
+# Programmed by Feng XIAO (updated on 2025.3.25)
 ############################################################################################################
 
 ### Preparation
@@ -174,18 +174,27 @@ rd_long2 <- rd %>%
                names_prefix = "Account_") 
 rd_long2$Group <- factor(rd_long2$Group, levels = c("endpoint","present"))
 rd_long2$Group <- relevel(rd_long2$Group, ref = "present")
+rd_long2$temporal_preference <- factor(
+  rd_long2$temporal_preference,
+  levels = c("LongTerm", "Immediate", "ShortTerm")
+)
 # Within Group
 model_tp_end <- lm(Account ~ temporal_preference + Gender * Age, data = rd_long2[rd_long2$Group == "endpoint", ])
-summary(model_tp_end) #Endpoint: ShortTerm<LongTerm, p<.001
+summary(model_tp_end) 
+emm <- emmeans(model_tp_end, ~ temporal_preference)
+contrast(emm, method = "pairwise") #Endpoint: Immediate<LongTerm, p<.001; Immediate<ShortTerm, p<.001
 model_tp_mindfulness <- lm(Account ~ temporal_preference + Gender * Age, data = rd_long2[rd_long2$Group == "present", ])
-summary(model_tp_mindfulness) #Present: ShortTerm<LongTerm, p<.001; MidTerm<LongTerm, p=.003
+summary(model_tp_mindfulness) 
+emm <- emmeans(model_tp_mindfulness, ~ temporal_preference)
+contrast(emm, method = "pairwise") 
+   #Present: Immediate<LongTerm, p<.001; Immediate<ShortTerm, p<.001; ShortTerm<LongTerm, p=.008
 # Between Groups
 model_tp <- lm(Account ~ Group * temporal_preference + Gender * Age, data = rd_long2)
-summary(model_tp) #MidTerm: endpoint>present, p=.044
+summary(model_tp) #ShortTerm: endpoint>present, p=.044
 # Plotting1
 emmeans_tp_df <- as.data.frame(emmeans(model_tp, ~ Group * temporal_preference))
 emmeans_tp_df$temporal_preference <- factor(emmeans_tp_df$temporal_preference, 
-                                            levels = c("ShortTerm", "MidTerm", "LongTerm"))
+                                            levels = c("Immediate", "ShortTerm", "LongTerm"))
 p_tp <- ggplot(emmeans_tp_df, aes(x = temporal_preference, y = emmean, color = Group, group = Group)) +
   geom_line(position = position_dodge(width = 0.3)) + 
   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.4,
@@ -208,18 +217,18 @@ p_tp <- ggplot(emmeans_tp_df, aes(x = temporal_preference, y = emmean, color = G
     labels = scales::label_percent(scale = 100) 
   ) +
   plot_layout(nrow = 1) +
-  plot_annotation(title = '(C) Temporal preference',
+  plot_annotation(title = '(C) Resource allocation (main effect)',
                   theme = theme(plot.title = element_text(size = 7, color = 'black',
                                                           face = 'bold'))) 
 ggsave("pic_tp.pdf", plot = p_tp, width = 2, height = 2)
 # Plotting2
 rd_long2$temporal_preference <- factor(rd_long2$temporal_preference,
-                                       levels = c('ShortTerm','MidTerm','LongTerm'))
+                                       levels = c("Immediate", "ShortTerm", "LongTerm"))
 p_int <- ggplot(rd_long2, aes(x = temporal_preference, y = Account, color = Group)) +
   geom_point(aes(shape = Group), size = 0.8, alpha = 0.8) +  
   geom_smooth(method = "lm", aes(group = Group, fill = Group), se = TRUE, 
               linewidth = 1, linetype = "solid") + 
-  labs(x = "Temporal preference", y = "Account allocation (%)") +
+  labs(x = NULL, y = "Account allocation (%)") +
   ggtitle(NULL) +  
   theme(
     axis.line = element_line(colour = "black", size = 0.4),  
@@ -238,7 +247,7 @@ p_int <- ggplot(rd_long2, aes(x = temporal_preference, y = Account, color = Grou
   scale_color_manual(values = c("endpoint" = "#B22222", "present" = "#4169E1")) +
   scale_fill_manual(values = c("endpoint" = "#B22222", "present" = "#4169E1")) +  
   plot_layout(nrow = 1) +
-  plot_annotation(title = '(B) Interaction effect of Group on temporal preference',
+  plot_annotation(title = '(D) Resource allocation (interaction effect)',
                   theme = theme(plot.title = element_text(size = 7, color = 'black',
                                                           face = 'bold'))) 
 ggsave("pic_int.pdf", plot = p_int, width = 2, height = 2)
@@ -293,7 +302,7 @@ p_emo_end <- ggplot(emotion_percentage_endpoint, aes(x = reorder(Emotion_type, -
     legend.position = 'none'  
   ) +
   plot_layout(nrow = 1) +
-  plot_annotation(title = '(A) Emotional experiences (Endpoint-focus)',
+  plot_annotation(title = '(A) Emotional experiences (Endpoint-focused thinking)',
                   theme = theme(plot.title = element_text(size = 7, color = 'black',
                                                           face = 'bold')))
 ggsave("pic_emo_endpoint.pdf", plot = p_emo_end, width = 4, height = 2)
@@ -346,11 +355,12 @@ p_emo_present <- ggplot(emotion_percentage_present, aes(x = reorder(Emotion_type
     legend.position = 'none'  
   ) +
   plot_layout(nrow = 1) +
-  plot_annotation(title = '(B) Emotional experiences (Present-focus)',
+  plot_annotation(title = '(B) Emotional experiences (Present-focused thinking)',
                   theme = theme(plot.title = element_text(size = 7, color = 'black',
                                                           face = 'bold')))
 ggsave("pic_emo_present.pdf", plot = p_emo_present, width = 3, height = 2)
 # Comparisons between Groups
+# Intensity ratings
 rd_endpoint_long_filtered <- rd_endpoint_long %>%
   filter(Emotion_type %in% c("peace", "relaxation", "sadness")) %>%
   select(SubjNum, Emotion_type, Emotion_rating)
@@ -366,55 +376,27 @@ comparison_emo_results <- combined_emo_data %>%
     p_value = t.test(Emotion_rating ~ Group, paired = FALSE)$p.value, 
     mean_diff = mean(Emotion_rating[Group == "Endpoint-focus"]) - mean(Emotion_rating[Group == "Present"]) 
   ) #NS
-
-## Additional Analysis
-## Regression for delay discounting change on time perception
-# Analysis
-rd$logk_change <- rd$logk_post3 - rd$logk_pre #we only focused on the accumulated effects
-rd$Group <- factor(rd$Group, levels = c("endpoint","present"))
-rd$Group <- relevel(rd$Group, ref = "present")
-model_t <- lm(TenPercp ~ logk_change * Group + Gender * Age, data = rd)
-summary(model_t) #NS,endpoint: logk change predicts time perception, p=.034
-# Plotting
-rd$predicted <- predict(model_t, newdata = rd)
-rd$Group <- factor(rd$Group, levels = c('endpoint', 'present'))
-p_reg <- ggplot(rd, aes(x = logk_change, y = TenPercp, color = Group)) +
-  geom_point(aes(shape = Group), size = 0.8, alpha = 0.8) +  
-  geom_smooth(method = "lm", aes(group = Group, fill = Group), 
-              se = TRUE, linewidth = 1, linetype = "solid") + 
-  labs(x = "Log k-value change (post - pre)", y = "Time perception (estimated)") +
-  ggtitle(NULL) +  
-  theme(
-    axis.line = element_line(colour = "black", size = 0.4),  
-    axis.title = element_text(size = 7, color = "black"),
-    axis.text = element_text(size = 7, color = "black"),
-    panel.background = element_rect(fill = "transparent"), 
-    legend.position = 'none'  
-  ) +
-  scale_y_continuous(expand = c(0, 0), limits = c(1, 9), oob = scales::squish,
-                     breaks = c(1, seq(1, 9, by = 2))) +
-  scale_x_continuous(expand = c(0, 0), limits = c(-3, 9), oob = scales::squish,
-                     breaks = c(-3, seq(-3, 9, by = 3))) +
-  scale_color_manual(values = c("endpoint" = "#B22222", "present" = "#4169E1")) +
-  scale_fill_manual(values = c("endpoint" = "#B22222", "present" = "#4169E1")) +  
-  plot_layout(nrow = 1) +
-  plot_annotation(title = '(A) Main effect of log k-value change and Group on time perception',
-                  theme = theme(plot.title = element_text(size = 7, color = 'black',
-                                                          face = 'bold')))
-ggsave("pic_reg.pdf", plot = p_reg, width = 2, height = 2)
-
-## Regression for delay discounting change on emotional rating
-# Analysis
-rd_logk_change <- rd %>%
-  select(SubjNum, logk_change)
-combined_emo_data_with_logk <- combined_emo_data %>%
-  left_join(rd_logk_change, by = "SubjNum")
-model_peace <- lm(Emotion_rating ~ logk_change * Group, data = combined_emo_data_with_logk %>%
-                         filter(Emotion_type == "peace"))
-summary(model_peace) #NS
-model_relax <- lm(Emotion_rating ~ logk_change * Group, data = combined_emo_data_with_logk %>%
-                    filter(Emotion_type == "relaxation"))
-summary(model_relax) #NS
-model_sad <- lm(Emotion_rating ~ logk_change * Group, data = combined_emo_data_with_logk %>%
-                    filter(Emotion_type == "sadness"))
-summary(model_sad) #NS
+# Proportion
+emotions <- c("peace", "relaxation", "sadness")
+for (emo in emotions) {
+  a <- emotion_percentage_endpoint %>% filter(Emotion_type == emo) %>% pull(count)
+  b <- emotion_percentage_present  %>% filter(Emotion_type == emo) %>% pull(count)
+  total_endpoint <- sum(emotion_percentage_endpoint$count)
+  total_present  <- sum(emotion_percentage_present$count)
+  c <- total_endpoint - a
+  d <- total_present  - b
+  tbl <- matrix(c(a, c, b, d), nrow = 2, byrow = TRUE,
+                dimnames = list(Group = c("endpoint", "present"),
+                                Emotion = c(emo, paste0("not_", emo))))
+  total_n <- sum(tbl)
+  cat("\n====", emo, "====\n")
+  print(tbl)
+  if(any(tbl < 5)) {
+    test <- fisher.test(tbl)
+    cat(sprintf("Test: Fisher¡¯s exact, N = %d, p = %.3f\n", total_n, test$p.value))
+  } else {
+    test <- chisq.test(tbl, correct = FALSE)
+    cat(sprintf("Test: Chi-squared, ¦Ö2(%d, N = %d) = %.2f, p = %.3f\n",
+                test$parameter, total_n, test$statistic, test$p.value))
+  }
+}
