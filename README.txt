@@ -5,10 +5,10 @@ Welcome to the GitHub repository for our research project. This repository conta
 ##Data and Code Usage##
 
 Data: rawdata.xlsx
-Script for Analysis & Viso: BehavioralDataAnalysis.R
+Script for Analysis & Viso: DataAnalysis&Viso.R
 
 - Run the script segment by segment to follow each step of our analysis
-- Generated graphs: pic_logk.pdf, pic_time.pdf, pic_int.pdf, pic_emo_endpoint.pdf, pic_emo_present.pdf
+- Generated graphs: pic_logk.pdf, pic_time.pdf, pic_tp.pdf, pic_int.pdf, pic_emo_endpoint.pdf, pic_emo_present.pdf
 - Final figure: Fig. 1 (experimental diagram), Fig. 2, and Fig. 3 (refined using Adobe Illustrator)
 
 ##Edited on June 14, 2025
